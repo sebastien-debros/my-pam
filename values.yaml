@@ -1,0 +1,8 @@
+teleport-cluster:
+  chartMode: standalone
+  clusterName: teleport.local
+
+adminUser:
+  name: admin
+  roles: "access,editor"
+  logins: "root"

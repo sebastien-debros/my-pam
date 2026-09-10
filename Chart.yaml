@@ -1,0 +1,11 @@
+apiVersion: v2
+name: my-teleport
+description: My-teleport is a local test env to evaluate teleport as a PAM solution
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+
+dependencies:
+  - name: teleport-cluster
+    version: 18.11.0
+    repository: https://charts.releases.teleport.dev
