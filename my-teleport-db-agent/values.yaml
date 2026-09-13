@@ -1,0 +1,37 @@
+teleport-kube-agent:
+  # Deterministic service account name so the Kubernetes join token created
+  # on the auth pod (see README) can allow it ahead of time.
+  serviceAccountName: my-teleport-db
+
+  roles: "db"
+
+  # Same endpoint the web UI / tsh use, exposed by the my-teleport chart.
+  proxyAddr: my-teleport.teleport.svc.cluster.local:443
+
+  # The proxy uses Teleport's self-signed Host CA (no public/corporate CA in
+  # this home lab), so the agent can't validate the join TLS handshake by
+  # default. This is the chart's documented switch for exactly that case.
+  insecureSkipProxyTLSVerify: true
+
+  joinParams:
+    method: kubernetes
+    tokenName: my-teleport-db
+
+  databases:
+    - name: postgres
+      protocol: postgres
+      uri: postgres.postgres.svc.cluster.local:5432
+      tls:
+        ca_cert_file: /etc/teleport-tls-db/postgres/server.cas
+
+  # CA that signed Postgres's server certificate (the `server.cas` file
+  # generated for the my-postgres chart), copied into this namespace as the
+  # `postgres-ca` secret (see README) so this agent can trust it.
+  extraVolumes:
+    - name: postgres-ca
+      secret:
+        secretName: postgres-ca
+  extraVolumeMounts:
+    - name: postgres-ca
+      mountPath: /etc/teleport-tls-db/postgres
+      readOnly: true

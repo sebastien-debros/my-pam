@@ -1,0 +1,85 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  labels:
+    app: postgres
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      # Postgres refuses to start if its TLS key is group/world readable.
+      # Secret volumes can't satisfy that when mounted read-only for the
+      # postgres UID, so copy the material into a writable emptyDir first
+      # and lock down the permissions there.
+      initContainers:
+        - name: copy-tls
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              cp /tls-in/{{ .Values.tls.certFile }} /tls-out/server.crt
+              cp /tls-in/{{ .Values.tls.keyFile }} /tls-out/server.key
+              cp /tls-in/{{ .Values.tls.caFile }} /tls-out/server.cas
+              chmod 600 /tls-out/server.crt /tls-out/server.key /tls-out/server.cas
+              chown 999:999 /tls-out/server.crt /tls-out/server.key /tls-out/server.cas
+          volumeMounts:
+            - name: tls-in
+              mountPath: /tls-in
+              readOnly: true
+            - name: tls-out
+              mountPath: /tls-out
+      containers:
+        - name: postgres
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          args:
+            - "-c"
+            - "ssl=on"
+            - "-c"
+            - "ssl_cert_file=/etc/teleport-tls/server.crt"
+            - "-c"
+            - "ssl_key_file=/etc/teleport-tls/server.key"
+            - "-c"
+            - "ssl_ca_file=/etc/teleport-tls/server.cas"
+            - "-c"
+            - "hba_file=/etc/postgresql-custom/pg_hba.conf"
+          env:
+            - name: POSTGRES_DB
+              value: {{ .Values.postgres.database | quote }}
+            - name: POSTGRES_USER
+              value: {{ .Values.postgres.user | quote }}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.postgres.existingSecret }}
+                  key: {{ .Values.postgres.existingSecretPasswordKey }}
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          ports:
+            - containerPort: 5432
+          volumeMounts:
+            - name: tls-out
+              mountPath: /etc/teleport-tls
+              readOnly: true
+            - name: hba
+              mountPath: /etc/postgresql-custom
+            - name: data
+              mountPath: /var/lib/postgresql/data
+      volumes:
+        - name: tls-in
+          secret:
+            secretName: {{ .Values.tls.existingSecret }}
+        - name: tls-out
+          emptyDir: {}
+        - name: hba
+          configMap:
+            name: postgres-hba
+        - name: data
+          emptyDir: {}

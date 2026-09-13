@@ -1,0 +1,11 @@
+apiVersion: v2
+name: my-teleport-db-agent
+description: Teleport Database Service agent that proxies access to the local PostgreSQL instance
+type: application
+version: 0.1.0
+appVersion: "18.11.0"
+
+dependencies:
+  - name: teleport-kube-agent
+    version: 18.11.0
+    repository: https://charts.releases.teleport.dev

@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-hba
+data:
+  pg_hba.conf: |
+    # Require a client certificate signed by Teleport's Database CA
+    # (mounted as ssl_ca_file) for every connection. Teleport issues a
+    # short-lived client cert per session with the CN set to the requested
+    # Postgres role, so verify-full also enforces the requested db user.
+    hostssl all all all cert clientcert=verify-full

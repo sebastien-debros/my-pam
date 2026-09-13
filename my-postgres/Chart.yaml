@@ -1,0 +1,6 @@
+apiVersion: v2
+name: my-postgres
+description: A local PostgreSQL instance used as a target resource for testing Teleport Database Access
+type: application
+version: 0.1.0
+appVersion: "16"

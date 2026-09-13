@@ -47,6 +47,33 @@ kubectl exec -it <my-teleport-auth-pod> -n teleport -- \
   tctl users add admin --roles=access,editor --logins=root
 ```
 
+### 4. Grant database access to the admin user
+
+The `access`/`editor` preset roles above grant `db_labels` but not
+`db_users`/`db_names`, so `tsh` would see a database but be denied a
+connection to it. Add a small role that grants both, and assign it:
+
+```bash
+kubectl exec -it <my-teleport-auth-pod> -n teleport -- tctl create -f - <<'EOF'
+kind: role
+version: v7
+metadata:
+  name: db-access
+spec:
+  allow:
+    db_labels:
+      '*': '*'
+    db_names: ['*']
+    db_users: ['postgres']
+EOF
+
+kubectl exec -it <my-teleport-auth-pod> -n teleport -- \
+  tctl users update admin --set-roles=access,editor,db-access
+```
+
+This is only needed if you plan to deploy `../my-postgres` and
+`../my-teleport-db-agent` to test Database Access.
+
 ## Web UI Access
 
 Because the cluster runs in an isolated `k3d` environment, open a tunnel to reach the proxy.
@@ -56,7 +83,7 @@ Because the cluster runs in an isolated `k3d` environment, open a tunnel to reac
 Forward the TLS port of the proxy service:
 
 ```bash
-kubectl port-forward -n teleport svc/my-teleport-proxy 3080:443
+kubectl port-forward -n teleport svc/my-teleport 3080:443
 ```
 
 ### 2. First-time setup
@@ -65,3 +92,21 @@ kubectl port-forward -n teleport svc/my-teleport-proxy 3080:443
 2. Follow the prompts to set your password and scan the **MFA QR code** (Google Authenticator, Bitwarden, etc.).
 
 You are now connected to your local Teleport instance.
+
+## Database Access
+
+Once `../my-postgres` and `../my-teleport-db-agent` are also deployed, you
+can reach Postgres through Teleport using the `tsh` and `tctl` client
+binaries ([install instructions](https://goteleport.com/docs/installation/))
+on your host — they aren't required for the steps above, only for this one.
+
+With the port-forward from step 1 still running:
+
+```bash
+tsh login --proxy=localhost:3080 --insecure teleport.local
+tsh db ls
+tsh db connect postgres --db-user=postgres --db-name=postgres
+```
+
+`--insecure` is needed because the proxy's certificate is issued for
+`teleport.local`, not `localhost`.

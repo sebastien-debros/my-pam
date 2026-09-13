@@ -1,6 +1,16 @@
 teleport-cluster:
   chartMode: standalone
   clusterName: teleport.local
+  # Include the in-cluster Service DNS name so agents joining from within
+  # the cluster (e.g. my-teleport-db-agent) can validate the proxy's cert
+  # and reach the reverse-tunnel address it advertises (the first entry is
+  # used as the canonical tunnel address, and "teleport.local" only
+  # resolves on the host machine via the port-forward, not inside the
+  # cluster). tsh/the web UI still work at https://localhost:3080 via
+  # port-forward regardless of which entry is listed first.
+  publicAddr:
+    - my-teleport.teleport.svc.cluster.local:443
+    - teleport.local:443
 
 adminUser:
   name: admin
